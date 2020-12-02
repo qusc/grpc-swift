@@ -828,6 +828,7 @@ extension ConnectionManager {
             group: self.eventLoop,
             hasTLS: configuration.tls != nil
           ),
+            maxConcurrentStreams: configuration.maxConcurrentStreams,
           logger: self.logger
         )
 

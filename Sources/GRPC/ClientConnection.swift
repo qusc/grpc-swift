@@ -21,6 +21,7 @@ import NIOSSL
 import NIOTLS
 import NIOTransportServices
 import SwiftProtobuf
+import NIOHPACK
 
 /// Provides a single, managed connection to a server.
 ///
@@ -333,6 +334,8 @@ extension ClientConnection {
     ///
     /// - Warning: The initializer closure may be invoked *multiple times*.
     public var debugChannelInitializer: ((Channel) -> EventLoopFuture<Void>)?
+    
+    public var maxConcurrentStreams: Int
 
     /// Create a `Configuration` with some pre-defined defaults. Prefer using
     /// `ClientConnection.secure(group:)` to build a connection secured with TLS or
@@ -368,6 +371,7 @@ extension ClientConnection {
       connectionIdleTimeout: TimeAmount = .minutes(30),
       callStartBehavior: CallStartBehavior = .waitsForConnectivity,
       httpTargetWindowSize: Int = 65535,
+      maxConcurrentStreams: Int = 100,
       backgroundActivityLogger: Logger = Logger(
         label: "io.grpc",
         factory: { _ in SwiftLogNoOpLogHandler() }
@@ -387,6 +391,7 @@ extension ClientConnection {
       self.httpTargetWindowSize = httpTargetWindowSize
       self.backgroundActivityLogger = backgroundActivityLogger
       self.debugChannelInitializer = debugChannelInitializer
+      self.maxConcurrentStreams = maxConcurrentStreams
     }
   }
 }
@@ -447,6 +452,7 @@ extension Channel {
     connectionIdleTimeout: TimeAmount,
     errorDelegate: ClientErrorDelegate?,
     requiresZeroLengthWriteWorkaround: Bool,
+    maxConcurrentStreams: Int,
     logger: Logger
   ) -> EventLoopFuture<Void> {
     let tlsConfigured = tlsConfiguration.map {
@@ -464,6 +470,10 @@ extension Channel {
     ).flatMap {
       self.configureHTTP2Pipeline(
         mode: .client,
+        initialLocalSettings: [
+            HTTP2Setting(parameter: .maxConcurrentStreams, value: maxConcurrentStreams),
+            HTTP2Setting(parameter: .maxHeaderListSize, value: HPACKDecoder.defaultMaxHeaderListSize)
+        ],
         targetWindowSize: httpTargetWindowSize,
         inboundStreamInitializer: nil
       )
