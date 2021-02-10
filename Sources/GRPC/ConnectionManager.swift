@@ -854,6 +854,7 @@ extension ConnectionManager {
             hasTLS: self.configuration.tls != nil
           ),
           logger: self.logger,
+            maxConcurrentStreams: self.configuration.maxConcurrentStreams,
           customVerificationCallback: self.configuration.tls?.customVerificationCallback
         )
 

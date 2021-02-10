@@ -268,6 +268,8 @@ extension Server {
 
     /// The HTTP/2 flow control target window size.
     public var httpTargetWindowSize: Int
+    
+    public var maxConcurrentStreams: Int
 
     /// The root server logger. Accepted connections will branch from this logger and RPCs on
     /// each connection will use a logger branched from the connections logger. This logger is made
@@ -315,6 +317,7 @@ extension Server {
       connectionIdleTimeout: TimeAmount = .nanoseconds(.max),
       messageEncoding: ServerMessageEncoding = .disabled,
       httpTargetWindowSize: Int = 65535,
+      maxConcurrentStreams: Int = 100,
       logger: Logger = Logger(label: "io.grpc", factory: { _ in SwiftLogNoOpLogHandler() }),
       debugChannelInitializer: ((Channel) -> EventLoopFuture<Void>)? = nil
     ) {
@@ -331,6 +334,7 @@ extension Server {
       self.connectionIdleTimeout = connectionIdleTimeout
       self.messageEncoding = messageEncoding
       self.httpTargetWindowSize = httpTargetWindowSize
+      self.maxConcurrentStreams = maxConcurrentStreams
       self.logger = logger
       self.debugChannelInitializer = debugChannelInitializer
     }

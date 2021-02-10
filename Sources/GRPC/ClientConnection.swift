@@ -21,6 +21,7 @@ import NIOSSL
 import NIOTLS
 import NIOTransportServices
 import SwiftProtobuf
+import NIOHPACK
 
 /// Provides a single, managed connection to a server which is guaranteed to always use the same
 /// `EventLoop`.
@@ -331,6 +332,8 @@ extension ClientConnection {
     ///
     /// - Warning: The initializer closure may be invoked *multiple times*.
     public var debugChannelInitializer: ((Channel) -> EventLoopFuture<Void>)?
+    
+    public var maxConcurrentStreams: Int
 
     /// Create a `Configuration` with some pre-defined defaults. Prefer using
     /// `ClientConnection.secure(group:)` to build a connection secured with TLS or
@@ -366,6 +369,7 @@ extension ClientConnection {
       connectionIdleTimeout: TimeAmount = .minutes(30),
       callStartBehavior: CallStartBehavior = .waitsForConnectivity,
       httpTargetWindowSize: Int = 65535,
+      maxConcurrentStreams: Int = 100,
       backgroundActivityLogger: Logger = Logger(
         label: "io.grpc",
         factory: { _ in SwiftLogNoOpLogHandler() }
@@ -385,6 +389,7 @@ extension ClientConnection {
       self.httpTargetWindowSize = httpTargetWindowSize
       self.backgroundActivityLogger = backgroundActivityLogger
       self.debugChannelInitializer = debugChannelInitializer
+      self.maxConcurrentStreams = maxConcurrentStreams
     }
   }
 }
@@ -420,6 +425,7 @@ extension Channel {
     errorDelegate: ClientErrorDelegate?,
     requiresZeroLengthWriteWorkaround: Bool,
     logger: Logger,
+    maxConcurrentStreams: Int,
     customVerificationCallback: NIOSSLCustomVerificationCallback?
   ) -> EventLoopFuture<Void> {
     // We add at most 8 handlers to the pipeline.
@@ -466,7 +472,13 @@ extension Channel {
       inboundStreamInitializer: nil
     )
 
-    handlers.append(NIOHTTP2Handler(mode: .client))
+    let initialSettings: HTTP2Settings = [
+        HTTP2Setting(parameter: .maxConcurrentStreams, value: maxConcurrentStreams),
+        HTTP2Setting(parameter: .maxHeaderListSize, value: HPACKDecoder.defaultMaxHeaderListSize)
+    ]
+    
+    handlers.append(NIOHTTP2Handler(mode: .client, initialSettings: initialSettings))
+    
     // The multiplexer is passed through the idle handler so it is only reported on
     // successful channel activation - with happy eyeballs multiple pipelines can
     // be constructed so it's not safe to report just yet.
